@@ -1,0 +1,5 @@
+test_case_id,scenario,input_summary,expected_outcome,purpose
+TC-001,Clear billing request,"Duplicate subscription charge with explicit refund request",success,"Validate the normal success path for a clear customer request"
+TC-002,Ambiguous request,"Customer reports that something is wrong but does not identify the specific issue",human_review,"Validate escalation when the email is too ambiguous for reliable classification"
+TC-003,Unsupported claim,"First AI analysis is deliberately made to include an unsupported claim that a refund was already processed",verification_failed,"Validate whether independent verification detects an unsupported AI claim"
+TC-004,Unsupported urgency,"Delayed package email contains no explicit urgency",success,"Validate that missing urgency can be represented as unspecified instead of being inferred"
