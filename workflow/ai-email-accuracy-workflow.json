@@ -1,0 +1,974 @@
+{
+  "name": "Email Prompt Accuracy Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f07b0d6c-2ca5-470b-ae60-6db64dc1b369",
+              "name": "from",
+              "value": "customer@example.com",
+              "type": "string"
+            },
+            {
+              "id": "1ef64bed-3fb6-48fb-86c4-21bc29d86bc3",
+              "name": "subject",
+              "value": "Duplicate subscription charge",
+              "type": "string"
+            },
+            {
+              "id": "5bba599b-d11f-41e6-a23f-1877cebc27c0",
+              "name": "email_body",
+              "value": "Hi, I was charged twice for my subscription this month. Can you please refund the duplicate charge? I need this sorted out as soon as possible. Thanks, Sarah.",
+              "type": "string"
+            },
+            {
+              "id": "f36e764a-a31f-4e45-8fc0-b021dad896c5",
+              "name": "received_at",
+              "value": "2026-08-18T10:00:00Z",
+              "type": "string"
+            },
+            {
+              "id": "3ebf8b7b-83bf-418b-ab91-50b202d4060e",
+              "name": "test_case_id",
+              "value": "TC-002",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1632,
+        176
+      ],
+      "id": "33853fe3-e197-49cc-b379-076e011ac6de",
+      "name": "Test Email Input"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        176
+      ],
+      "id": "c130fa27-6b50-46e4-aead-e7371401b08d",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an email classification and analysis system.\n\nAnalyze the customer email using ONLY information explicitly contained in the email.\n\nRules:\n1. Do not invent customer details, account information, transactions, policies, actions taken, or outcomes.\n2. Do not assume that an action has already been performed.\n3. Distinguish between what the customer explicitly says and what you infer.\n4. Keep the summary factual and concise.\n5.Set urgency to exactly one of: low, medium, high, unspecified.\n\nUse \"unspecified\" when the customer does not explicitly communicate urgency or when urgency cannot be reliably determined from the email.\n\nDo not infer urgency merely because the customer is reporting a problem or requesting assistance.\n6. Set confidence to a number between 0 and 1\n7. Set `needs_human_review` to true when the customer's intent, issue type, requested action, or required facts are not clear enough to classify the email reliably.\n\nExamples that MUST set `needs_human_review` to true:\n- \"Something is wrong with my account.\"\n- \"Please fix this.\"\n- \"I have an issue.\"\n- \"This isn't working.\"\n- Any message where the specific problem cannot be determined from the email itself.\n\nDo NOT use a high confidence score when the email is vague or underspecified.\n\nIf the email does not provide enough information to identify the actual issue, set:\n- `needs_human_review` = true\n- `confidence` <= 0.6\n\nOnly set `needs_human_review` to false when the customer's intent and requested action are clearly identifiable from the email text.\n8. The reason must briefly explain why the classification was chosen based on evidence in the email.\n9. Follow the required structured output format exactly.\n\n\nEmail subject:\n{{ $json.subject }}\n\nEmail body:\n{{ $json.email_body }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1408,
+        176
+      ],
+      "id": "ecffa120-3c91-4a20-bd02-b62eac776ddd",
+      "name": "Email Analysis AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1536,
+        384
+      ],
+      "id": "ce4458c2-29e4-4381-9af0-081a526160d4",
+      "name": "Accuracy Chat Model"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"intent\": \"billing\",\n  \"urgency\": \"high\",\n  \"summary\": \"Customer reports a duplicate subscription charge.\",\n  \"customer_request\": \"Refund the duplicate charge.\",\n  \"confidence\": 0.95,\n  \"needs_human_review\": false,\n  \"reason\": \"The customer explicitly reports being charged twice and requests a refund.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1232,
+        384
+      ],
+      "id": "cc62b917-50d3-4a5a-833c-a848c9bff17b",
+      "name": "Email JSON Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "589fed33-6fdd-4e25-ad22-452742bd0d52",
+              "leftValue": "={{ $json.output.confidence }}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "add97985-9da6-40d3-b482-abf024633d8b",
+              "leftValue": "={{ $json.output.needs_human_review }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1040,
+        176
+      ],
+      "id": "049d4c9c-2701-4121-a6c9-0534fa94a7d1",
+      "name": "Validate AI Confidence"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "29d0d551-f0a7-4f81-abd3-edbe441465d5",
+              "name": "review_status ",
+              "value": "human_review_required",
+              "type": "string"
+            },
+            {
+              "id": "2a9acc8f-200d-49ba-a230-ad2d68b48006",
+              "name": "review_reason ",
+              "value": "AI confidence below threshold or AI requested human review",
+              "type": "string"
+            },
+            {
+              "id": "a890b01f-859f-4e49-9ac0-7a018ec8c01d",
+              "name": "original_intent",
+              "value": "= {{ $json.output.intent }}",
+              "type": "string"
+            },
+            {
+              "id": "2ef21b74-850c-4ac9-a2be-90ad75a2fcc3",
+              "name": "original_confidence",
+              "value": "= {{ $json.output.confidence }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -832,
+        240
+      ],
+      "id": "cd0acfb1-796b-47f8-bdaf-5c5a11ec7c0c",
+      "name": "Flag for Human Review"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "85e7b7d8-7483-40f4-a8aa-fbb18be97fec",
+              "name": "validation_status",
+              "value": "passed",
+              "type": "string"
+            },
+            {
+              "id": "21879429-d1d6-40b2-9038-4b7d5478d640",
+              "name": "accuracy_check",
+              "value": "validated",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -832,
+        96
+      ],
+      "id": "1410e8c7-16a4-46e7-b0f2-3c627bd6fc8d",
+      "name": "Mark as Validated"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an accuracy verification system.\n\nYour job is NOT to classify the email again. Your job is to verify whether the previous AI analysis is supported by the original customer email.\n\nORIGINAL EMAIL:\n{{ $('Test Email Input').item.json.email_body }}\n\nPREVIOUS AI ANALYSIS:\n{{ JSON.stringify($json.output) }}\n\nCheck for:\n- Unsupported or invented claims\n- Incorrect intent\n- Incorrect urgency\n- Incorrect customer request\n- Misleading summary\n- Contradictions with the original email\n\nBefore deciding whether the analysis is accurate, step back and identify the facts that are explicitly stated in the original email.\n\nFirst determine:\n- What problem did the customer explicitly report?\n- What action did the customer explicitly request?\n- What level of urgency is explicitly supported?\n- What information is NOT present in the email?\n\nThen compare those facts against the previous AI analysis.\n\nDo not treat assumptions, likely explanations, or reasonable business procedures as facts from the email.\n\nRules:\n1. Treat the original email as the source of truth.\n2. Do not introduce new facts.\n3. Reasonable paraphrasing is acceptable.\n4. Do not mark an analysis inaccurate simply because completing the customer's request requires account access, payment verification, or human action.\n5. Mark the analysis accurate only when its material claims are supported by the original email.\n6. If something is inaccurate, clearly identify the unsupported or incorrect claim.\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -592,
+        96
+      ],
+      "id": "45a61851-9f16-443d-9e9e-e4d5b8d9bc8e",
+      "name": "Accuracy Verification Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -624,
+        304
+      ],
+      "id": "bcf98a79-4f96-4756-be47-c6e06edccfc2",
+      "name": "Verification Chat Model"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"is_accurate\": true,\n  \"verification_score\": 0.95,\n  \"issues\": [],\n  \"verification_reason\": \"All material claims in the analysis are supported by the original email.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -416,
+        304
+      ],
+      "id": "d39d5826-1595-493c-a58b-d055f72b5f6c",
+      "name": "Verification Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a14c861a-f01f-4ca0-8dfc-e0dd120262e5",
+              "leftValue": "={{ $json.output.is_accurate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "6a8303e5-bf0a-44dc-8521-a0d6743c4363",
+              "leftValue": "={{ $json.output.verification_score }}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        96
+      ],
+      "id": "b87828d0-e621-4be7-8128-24ebf2128a4a",
+      "name": "Final Accuracy Check"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3c3e65c7-c34b-4f43-a47a-0d41ca21888c",
+              "name": "final_status",
+              "value": "verified",
+              "type": "string"
+            },
+            {
+              "id": "fb65e14c-ba9b-4801-817d-181369b36699",
+              "name": "ready_for_automation",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d4881b1b-b25a-4baa-b9b9-470089b7b137",
+      "name": "Final Verified Output"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7904617b-cb22-45e4-adb1-b9c5531921ca",
+              "name": "final_status",
+              "value": "verification_failed",
+              "type": "string"
+            },
+            {
+              "id": "b0aece1d-2dbd-42a1-8e27-1521df4c04c0",
+              "name": "ready_for_automation",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "f8f7e65d-c41c-4616-8de4-7149571ac693",
+              "name": "requires_preview",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        192
+      ],
+      "id": "18360de8-aacf-407b-91f7-b2ed5b9428bc",
+      "name": "Verification Failed"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1ed12b6d-48dd-402e-b9c8-48039413d5df",
+              "name": "log_type",
+              "value": "email_accuracy_check",
+              "type": "string"
+            },
+            {
+              "id": "110e48aa-0708-4792-9a2b-f0a3950e5c5c",
+              "name": "log_result",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "929ef147-4ea8-400f-9302-7156dd8cfce5",
+              "name": "=logged_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "43e0ef30-448c-4e0d-89b5-56ca6f9143b0",
+              "name": "prompt_version",
+              "value": "v1.0",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "6d022f0b-c677-4c64-b5cd-6a83833ab1f7",
+      "name": "Build Success Log"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7de5d465-382d-4d14-a6e9-d137bf5d612c",
+              "name": "log_type",
+              "value": "email_accuracy_check",
+              "type": "string"
+            },
+            {
+              "id": "eec48420-b097-4e88-b413-2dca53261444",
+              "name": "log_result",
+              "value": "human_review",
+              "type": "string"
+            },
+            {
+              "id": "49af6d70-ee9b-46e3-b51c-ee66eb9f7a8f",
+              "name": "=logged_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "8e01f10c-904f-48d9-891f-1d0339b41c29",
+              "name": "prompt_version ",
+              "value": "v1.0",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -720,
+        464
+      ],
+      "id": "fc428e47-8553-4763-876a-548cfff8630d",
+      "name": "Build Human Review Log"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a10d8968-60de-4296-8a88-d9281a846e69",
+              "name": "log_type",
+              "value": "email_accuracy_check",
+              "type": "string"
+            },
+            {
+              "id": "18d1dad4-5a1c-40fc-9792-794d1f261a1b",
+              "name": "log_result",
+              "value": "verification_failed",
+              "type": "string"
+            },
+            {
+              "id": "8cfc846d-5198-4fdb-85ab-d57007ddad4d",
+              "name": "=logged_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "8a755ea8-dd43-4e07-882d-b1122bf368bd",
+              "name": "prompt_version ",
+              "value": "v1.0",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        192
+      ],
+      "id": "8fbba196-0ac4-4109-af32-c062c559169f",
+      "name": "Build Verification Failure Log"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        320
+      ],
+      "id": "1554f018-57d7-4da4-b5af-3e2583dccd1d",
+      "name": "Merge Accuracy Logs"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "logged_at": "={{ $json.logged_at }}",
+            "log_type": "={{ $json.log_type }}",
+            "log_result": "={{ $json.log_result }}",
+            "intent": "={{ $('Email Analysis AI Agent').item.json.output.intent }}",
+            "verification_score": "={{ $json.output.verification_score }}",
+            "urgency": "={{ $('Email Analysis AI Agent').item.json.output.urgency }}",
+            "confidence": "={{ $('Email Analysis AI Agent').item.json.output.confidence }}",
+            "needs_human_review": "={{ $('Email Analysis AI Agent').item.json.output.needs_human_review }}",
+            "is_accurate": "={{ $json.output.is_accurate }}",
+            "verification_reason": "={{ $json.output.verification_reason }}",
+            "issues": "={{ JSON.stringify($json.output.issues) }}",
+            "final_status": "={{ $json.final_status }}",
+            "ready_for_automation": "={{ $json.ready_for_automation }}",
+            "summary": "={{ $('Email Analysis AI Agent').item.json.output.summary }}",
+            "customer_request": "={{ $('Email Analysis AI Agent').item.json.output.customer_request }}",
+            "reason": "={{ $('Email Analysis AI Agent').item.json.output.reason }}",
+            "prompt_version": "={{ $json.prompt_version }}",
+            "test_case_id": "={{ $('Test Email Input').first().json.test_case_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "logged_at",
+              "displayName": "logged_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "log_type",
+              "displayName": "log_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "log_result",
+              "displayName": "log_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "needs_human_review",
+              "displayName": "needs_human_review",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "verification_score",
+              "displayName": "verification_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_accurate",
+              "displayName": "is_accurate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "final_status",
+              "displayName": "final_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ready_for_automation",
+              "displayName": "ready_for_automation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_request",
+              "displayName": "customer_request",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "verification_reason",
+              "displayName": "verification_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "issues",
+              "displayName": "issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "prompt_version",
+              "displayName": "prompt_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "test_case_id",
+              "displayName": "test_case_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        848,
+        336
+      ],
+      "id": "8da20195-6c3d-4d82-a58f-9f9605abef4d",
+      "name": "Save Accuracy Log"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Test Email Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Email Input": {
+      "main": [
+        [
+          {
+            "node": "Email Analysis AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accuracy Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Email Analysis AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email JSON Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Email Analysis AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Analysis AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI Confidence": {
+      "main": [
+        [
+          {
+            "node": "Mark as Validated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flag for Human Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Validated": {
+      "main": [
+        [
+          {
+            "node": "Accuracy Verification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verification Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Accuracy Verification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verification Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Accuracy Verification Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accuracy Verification Agent": {
+      "main": [
+        [
+          {
+            "node": "Final Accuracy Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Accuracy Check": {
+      "main": [
+        [
+          {
+            "node": "Final Verified Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Verification Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Verified Output": {
+      "main": [
+        [
+          {
+            "node": "Build Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag for Human Review": {
+      "main": [
+        [
+          {
+            "node": "Build Human Review Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verification Failed": {
+      "main": [
+        [
+          {
+            "node": "Build Verification Failure Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success Log": {
+      "main": [
+        [
+          {
+            "node": "Merge Accuracy Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Human Review Log": {
+      "main": [
+        [
+          {
+            "node": "Merge Accuracy Logs",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Build Verification Failure Log": {
+      "main": [
+        [
+          {
+            "node": "Merge Accuracy Logs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Accuracy Logs": {
+      "main": [
+        [
+          {
+            "node": "Save Accuracy Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
